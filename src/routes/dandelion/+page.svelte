@@ -11,8 +11,7 @@
 		subVec,
 		divVec,
 		getInterpingToTree,
-		mag,
-		sleep
+		mag
 	} from 'aninest';
 	import { createParticle } from './particle';
 	import { getInterpingToProxy, getUpdateLayer } from '@aninest/extensions';
@@ -36,11 +35,11 @@
 	const vectorField = (pos: Vec2): Vec2 => {
 		const untrackedDims = untrack(() => screenDimensions);
 		if (untrackedDims.x == 0 || untrackedDims.y == 0) return ZERO_VEC2;
-		const scalar = 2 * Math.min(untrackedDims.x, untrackedDims.y);
+		const scalar = 0.5 * Math.min(untrackedDims.y, untrackedDims.x / 1.5);
 		const ops: (Op<number> | Op<Vec2>)[] = [
 			[divScalar, mulScalar, scalar],
-			[addVec, subVec, newVec2(-0.5, -0.5)],
-			[mulVec, divVec, newVec2(20, -20)]
+			[addVec, subVec, newVec2(-1.5, -2)],
+			[mulVec, divVec, newVec2(5, -5)]
 		];
 		const adjusted = ops.reduce((prev, curr) => {
 			return curr[0](prev, curr[2] as number & Vec2);
@@ -50,25 +49,44 @@
 
 		const spiralCenter = newVec2(0, 2);
 
+		if (mag(subVec(spiralCenter, adjusted)) < 0.5) return newVec2(0, 0);
+
+		const spiral = newVec2(
+			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
+				(-10 * (x - spiralCenter.x) + 50 * (y - spiralCenter.y)),
+			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
+				(-50 * (x - spiralCenter.x) - 10 * (y - spiralCenter.y))
+		);
+
 		let yOut =
 			// focus to middle
-			2 * mag(subVec(adjusted, spiralCenter)) * subVec(spiralCenter, adjusted).y +
+			// 0.1 * mag(subVec(adjusted, spiralCenter)) * subVec(spiralCenter, adjusted).y +
 			// spiral
-			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
-				(-10 * (x - spiralCenter.x) - 10 * (y - spiralCenter.y)) +
+			spiral.y +
 			// offshoot
-			10 *
+			0.05 *
 				mag(subVec(adjusted, spiralCenter)) *
-				(relu(x - spiralCenter.x) *
-					relu(y - spiralCenter.y) *
-					(1 / Math.max(relu(y - spiralCenter.y) - relu(x - spiralCenter.x), 2)) *
-					0.1);
+				(relu(y - spiralCenter.y) *
+					(1 / Math.max(relu(y - spiralCenter.y) - 0.1 * relu(x - spiralCenter.x), 0.5)) *
+					0.1) -
+			Math.min(
+				0.1 *
+					spiral.y *
+					Math.max(
+						relu(x - spiralCenter.x) *
+							relu(y - spiralCenter.y) *
+							(1 / Math.max(relu(y - spiralCenter.y) - relu(x - spiralCenter.x), 0.5)) *
+							0.1 *
+							x,
+						1
+					),
+				0
+			);
 		let xOut =
 			// focus to middle
-			2 * mag(subVec(adjusted, spiralCenter)) * subVec(spiralCenter, adjusted).x +
+			// 0.1 * mag(subVec(adjusted, spiralCenter)) * subVec(spiralCenter, adjusted).x +
 			// spiral
-			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
-				(-10 * (x - spiralCenter.x) + 10 * (y - spiralCenter.y)) +
+			spiral.x +
 			// offshoot
 			10 *
 				mag(subVec(adjusted, spiralCenter)) *
@@ -77,14 +95,22 @@
 					(1 / Math.max(relu(x - spiralCenter.x) - relu(y - spiralCenter.y), 2)) *
 					0.1);
 		// stem
-		yOut -= (relu(spiralCenter.y - 4 - y) * (yOut * Math.abs(spiralCenter.x - x))) / 10;
+		yOut += relu(spiralCenter.y - 4 - y) * 20 * (0.2 / Math.max(Math.abs(spiralCenter.x - x), 0.2));
 		xOut +=
-			relu(spiralCenter.y - 4 - y) * Math.sign(spiralCenter.x - x) * (spiralCenter.x - x) ** 2 * 10;
-		// }
-		let out: Vec2 = mulVec(newVec2(xOut, yOut), newVec2(100, -100));
+			Math.min(
+				-spiral.x * (relu(spiralCenter.y - 2 - y) / 15),
+				-spiral.x * Math.sign(spiralCenter.y - 2 - y)
+			) +
+			relu(spiralCenter.y - 4 - y) * Math.sign(spiralCenter.x - x) * Math.abs(spiralCenter.x - x);
+
+		let out: Vec2 = mulVec(newVec2(xOut + Math.random(), yOut + Math.random()), newVec2(100, -100));
+		// wind
 		out = addVec(
 			out,
-			mulScalar(newVec2(xNoise3D(x, y, time), yNoise3D(x, y, time)), mag(out) * 0.5)
+			mulScalar(
+				newVec2(xNoise3D(x * 10, y * 10, time), yNoise3D(x * 10, y * 10, time)),
+				Math.sqrt((mag(out) + 50) * mag(out))
+			)
 		);
 		return out;
 	};
@@ -99,9 +125,9 @@
 				const { step } = getInterpingToTree(particle.anim);
 				const unsub = updateLayer.mount(particle.anim);
 				unsubMap.set(particle.anim, unsub);
-				step();
+				step(true);
 			}
-		}, 1);
+		}, 10);
 		setTimeout(() => {
 			clearInterval(interval);
 		}, 10000);
@@ -109,15 +135,13 @@
 		const updateLayer = getUpdateLayer<Particle>();
 
 		updateLayer.subscribe('end', (anim) => {
-			const { reset, step } = getInterpingToTree(anim);
-			sleep(Math.random()).then(() => {
-				reset(screenDimensions);
-				step();
-			});
+			const { reset } = getInterpingToTree(anim);
+			reset(screenDimensions);
 		});
 
 		updateLayer.subscribe('updateWithDeltaTime', (dt) => {
-			time += dt;
+			time += 4 * dt;
+			console.log(Math.round(1 / dt));
 			ctx.clearRect(0, 0, untrackedDims.x * devicePixelRatio, untrackedDims.y * devicePixelRatio);
 		});
 
