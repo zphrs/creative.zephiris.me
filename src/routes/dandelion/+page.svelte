@@ -139,14 +139,25 @@
 			reset(screenDimensions);
 		});
 
+		const lightColor = 'rgb(0,0,0)';
+		const darkColor = 'rgb(255,255,255)';
+
+		let colorScheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+			? darkColor
+			: lightColor;
+
+		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+			colorScheme = event.matches ? darkColor : lightColor;
+		});
+
 		updateLayer.subscribe('updateWithDeltaTime', (dt) => {
 			time += 4 * dt;
-			console.log(Math.round(1 / dt));
+			// console.log(Math.round(1 / dt)); // logs fps
 			ctx.clearRect(0, 0, untrackedDims.x * devicePixelRatio, untrackedDims.y * devicePixelRatio);
 		});
 
 		updateLayer.subscribe('update', (particle) => {
-			ctx.strokeStyle = 'rgb(0, 0, 0)';
+			ctx.strokeStyle = colorScheme;
 			const { draw } = getInterpingToProxy(particle);
 			draw(ctx);
 		});
