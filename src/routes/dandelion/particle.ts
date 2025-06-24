@@ -35,7 +35,7 @@ if (browser)
 		psDown[e.pointerId] = true;
 	});
 export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
-	const glideLayer = localMomentumLayer(0.16 * Math.random() + 0.05, 1);
+	const glideLayer = localMomentumLayer(0.16 * Math.random() + 0.16, 1);
 	const pdownStack = createExtensionStack<Vec2>();
 	addLayerToStack(pdownStack, glideLayer);
 	addExtensionToStack(pdownStack, (posAnim) => {
@@ -73,13 +73,13 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 		const oldVel = getLocalInterpingTo(anim.children.vel);
 		const vMag = magSquared(oldVel);
 
-		if (vMag > 100000) {
+		if (vMag > 5000) {
 			return;
 		}
 		if (vMag < 0.01) {
 			return;
 		}
-		const newPos = addVec(to, mulScalar(field(to), 0.001));
+		const newPos = addVec(to, mulScalar(field(to), 0.0025));
 		const diff = subVec(newPos, to);
 		if (reset || getInterpFunction(anim) == NO_INTERP || mag(diff) > 1000) {
 			const vel = newVec2(Math.random(), Math.random());
@@ -111,7 +111,7 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 		pointerId = undefined;
 		pPosOffset = undefined;
 		if (glideLayer.startGlide()) {
-			modifyTo(anim.children.vel, mulScalar(normalize(getLocalState(anim.children.vel)), 100));
+			modifyTo(anim.children.vel, mulScalar(normalize(getLocalState(anim.children.vel)), 70));
 		}
 		setTimeout(() => {
 			defaultMode.on();
@@ -126,10 +126,11 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 			const newPos = addVec(pPos, pPosOffset);
 			modifyTo(anim.children.pos, addVec(pPos, pPosOffset));
 			const diff = subVec(newPos, oldPos);
-			const adjMag = clamp(1, mag(diff), 500);
+			const adjMag = clamp(1, mag(diff), 70);
 			modifyTo(anim.children.vel, mulScalar(normalize(diff), adjMag));
 		} else {
-			if (magSquared(offset) < 2000 && psDown[e.pointerId]) {
+			const dist = magSquared(offset);
+			if (dist < 4050 * Math.random() ** 2 && psDown[e.pointerId]) {
 				pointerId = e.pointerId;
 				pPosOffset = offset;
 				defaultMode.off();
@@ -167,8 +168,8 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 			reset: (screenDims: Vec2) => {
 				resetting = true;
 				const newPos = newVec2(
-					Math.random() * devicePixelRatio * screenDims.x,
-					1.1 * devicePixelRatio * screenDims.y
+					0.6 * devicePixelRatio * screenDims.x,
+					1 * devicePixelRatio * screenDims.y
 				);
 				// changeInterpFunction(anim.children.pos, NO_INTERP);
 				const vel = newVec2(Math.random(), Math.random());
@@ -178,13 +179,15 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 					{ update: true, end: true, interrupt: true, start: true }
 				);
 				step(true);
-				sleep(0.1).then(() => {
+				sleep(0.5).then(() => {
 					resetting = false;
 				});
 			}
 		},
 		getLinearInterp(0.25)
 	);
+	const { reset } = getLocalState(anim);
+	reset(screenDims);
 	changeInterpFunction(anim.children.vel, getLinearInterp(0.125));
 	const pDownMode = createMode(anim.children.pos, pdownStack);
 	const pUpExt: Extension<Vec2> = (anim) => {

@@ -35,12 +35,12 @@
 	const vectorField = (pos: Vec2): Vec2 => {
 		const untrackedDims = untrack(() => screenDimensions);
 		if (untrackedDims.x == 0 || untrackedDims.y == 0) return ZERO_VEC2;
-		const scalar = 0.5 * Math.min(untrackedDims.y, untrackedDims.x);
+		const scalar = 2 * Math.min(untrackedDims.y, untrackedDims.x);
 		const ops: (Op<number> | Op<Vec2>)[] = [
 			[divScalar, mulScalar, scalar],
-			[addVec, subVec, newVec2(-1, -1)],
-			[mulVec, divVec, newVec2(20, -20)],
-			[addVec, subVec, newVec2(5, -7.5)]
+			[addVec, subVec, newVec2(-0.5, -0.5)],
+			[mulVec, divVec, newVec2(40, -40)],
+			[addVec, subVec, newVec2(2, -7.5)]
 		];
 		const adjusted = ops.reduce((prev, curr) => {
 			return curr[0](prev, curr[2] as number & Vec2);
@@ -50,12 +50,12 @@
 
 		const spiralCenter = newVec2(0, 0);
 
-		if (mag(subVec(spiralCenter, adjusted)) < 0.5) return newVec2(0, 0);
+		if (mag(subVec(spiralCenter, adjusted)) < 0.25) return ZERO_VEC2;
 
 		const spiral = newVec2(
-			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
+			Math.min(4 / mag(subVec(adjusted, spiralCenter)), 4) *
 				(-10 * (x - spiralCenter.x) + 50 * (y - spiralCenter.y)),
-			Math.min(2 / mag(subVec(adjusted, spiralCenter)), 4) *
+			Math.min(4 / mag(subVec(adjusted, spiralCenter)), 4) *
 				(-50 * (x - spiralCenter.x) - 10 * (y - spiralCenter.y))
 		);
 
@@ -65,13 +65,13 @@
 			// spiral
 			spiral.y +
 			// offshoot
-			0.05 *
+			0.1 *
 				mag(subVec(adjusted, spiralCenter)) *
 				(relu(y - spiralCenter.y) *
 					(1 / Math.max(relu(y - spiralCenter.y) - 0.1 * relu(x - spiralCenter.x), 0.5)) *
 					0.1) -
 			Math.min(
-				0.1 *
+				0.05 *
 					spiral.y *
 					Math.max(
 						relu(x - spiralCenter.x) *
@@ -93,10 +93,13 @@
 				mag(subVec(adjusted, spiralCenter)) *
 				(relu(y) *
 					relu(x - spiralCenter.x) *
-					(1 / Math.max(relu(x - spiralCenter.x) - relu(y - spiralCenter.y), 2)) *
+					(2 / Math.max(relu(x - spiralCenter.x) - relu(y - spiralCenter.y), 2)) *
 					0.1);
 		// stem
-		yOut += relu(spiralCenter.y - 4 - y) * 20 * (0.5 / Math.max(Math.abs(spiralCenter.x - x + 1), 0.5));
+		yOut += Math.max(
+			relu(spiralCenter.y - 4 - y) * 20 * (0.5 / Math.max(Math.abs(spiralCenter.x - x + 1), 0.5)),
+			10
+		);
 		xOut +=
 			Math.min(
 				-spiral.x * (relu(spiralCenter.y - 2 - y) / 15),
@@ -112,7 +115,7 @@
 			out,
 			mulScalar(
 				newVec2(xNoise3D(x * 10, y * 10, time), yNoise3D(x * 10, y * 10, time)),
-				Math.sqrt((Math.max(mag(out), 500) + 1000) * Math.max(mag(out), 5000))
+				Math.min(Math.sqrt((mag(out) + 5000) * Math.max(mag(out), 5000)), 100000)
 			)
 		);
 		return out;
@@ -123,14 +126,14 @@
 		if (!ctx || !browser || !untrackedDims) return;
 		const unsubMap = new WeakMap();
 		const interval = setInterval(() => {
-			for (let i = 0; i < 4; i++) {
+			for (let i = 0; i < 20; i++) {
 				const particle = createParticle(vectorField, untrackedDims);
 				const { step } = getInterpingToTree(particle.anim);
 				const unsub = updateLayer.mount(particle.anim);
 				unsubMap.set(particle.anim, unsub);
 				step(true);
 			}
-		}, 10);
+		}, 100);
 		setTimeout(() => {
 			clearInterval(interval);
 		}, 10000);
@@ -190,6 +193,10 @@
 <svelte:window bind:innerWidth={screenDimensions.x} bind:innerHeight={screenDimensions.y} />
 
 <canvas bind:this={canvas}></canvas>
+
+<svelte:head>
+	<title>Dandelion</title>
+</svelte:head>
 
 <style>
 	canvas {
