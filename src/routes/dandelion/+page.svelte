@@ -35,11 +35,12 @@
 	const vectorField = (pos: Vec2): Vec2 => {
 		const untrackedDims = untrack(() => screenDimensions);
 		if (untrackedDims.x == 0 || untrackedDims.y == 0) return ZERO_VEC2;
-		const scalar = 0.5 * Math.min(untrackedDims.y, untrackedDims.x / 1.5);
+		const scalar = 0.5 * Math.min(untrackedDims.y, untrackedDims.x);
 		const ops: (Op<number> | Op<Vec2>)[] = [
 			[divScalar, mulScalar, scalar],
-			[addVec, subVec, newVec2(-1.5, -2)],
-			[mulVec, divVec, newVec2(5, -5)]
+			[addVec, subVec, newVec2(-1, -1)],
+			[mulVec, divVec, newVec2(20, -20)],
+			[addVec, subVec, newVec2(5, -7.5)]
 		];
 		const adjusted = ops.reduce((prev, curr) => {
 			return curr[0](prev, curr[2] as number & Vec2);
@@ -47,7 +48,7 @@
 		const { x, y } = adjusted;
 		const relu = (a: number) => Math.max(a, 0);
 
-		const spiralCenter = newVec2(0, 2);
+		const spiralCenter = newVec2(0, 0);
 
 		if (mag(subVec(spiralCenter, adjusted)) < 0.5) return newVec2(0, 0);
 
@@ -95,13 +96,15 @@
 					(1 / Math.max(relu(x - spiralCenter.x) - relu(y - spiralCenter.y), 2)) *
 					0.1);
 		// stem
-		yOut += relu(spiralCenter.y - 4 - y) * 20 * (0.2 / Math.max(Math.abs(spiralCenter.x - x), 0.2));
+		yOut += relu(spiralCenter.y - 4 - y) * 20 * (0.5 / Math.max(Math.abs(spiralCenter.x - x + 1), 0.5));
 		xOut +=
 			Math.min(
 				-spiral.x * (relu(spiralCenter.y - 2 - y) / 15),
 				-spiral.x * Math.sign(spiralCenter.y - 2 - y)
 			) +
-			relu(spiralCenter.y - 4 - y) * Math.sign(spiralCenter.x - x) * Math.abs(spiralCenter.x - x);
+			Math.max(relu(spiralCenter.y - 2 - y), 1) *
+				Math.sign(spiralCenter.x - x + 1) *
+				Math.abs(spiralCenter.x - x + 1);
 
 		let out: Vec2 = mulVec(newVec2(xOut + Math.random(), yOut + Math.random()), newVec2(100, -100));
 		// wind
@@ -109,7 +112,7 @@
 			out,
 			mulScalar(
 				newVec2(xNoise3D(x * 10, y * 10, time), yNoise3D(x * 10, y * 10, time)),
-				Math.sqrt((mag(out) + 50) * mag(out))
+				Math.sqrt((Math.max(mag(out), 500) + 1000) * Math.max(mag(out), 5000))
 			)
 		);
 		return out;

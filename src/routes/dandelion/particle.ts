@@ -6,6 +6,8 @@ import {
 	addLocalListener,
 	addRecursiveListener,
 	addVec,
+	changeInterpFunction,
+	clamp,
 	createAnimation,
 	createExtensionStack,
 	createMode,
@@ -33,24 +35,33 @@ if (browser)
 		psDown[e.pointerId] = true;
 	});
 export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
-	const glideLayer = localMomentumLayer(0.16, 1);
+	const glideLayer = localMomentumLayer(0.16 * Math.random() + 0.05, 1);
 	const pdownStack = createExtensionStack<Vec2>();
 	addLayerToStack(pdownStack, glideLayer);
-	addExtensionToStack(pdownStack, (anim) => {
-		return addRecursiveListener(anim, 'beforeEnd', () => {
-			// if (glideLayer.startGlide()) return;
+	addExtensionToStack(pdownStack, (posAnim) => {
+		const oldVelInterp = getInterpFunction(anim.children.vel);
+		const oldPosInterp = getInterpFunction(anim.children.pos);
+		changeInterpFunction(anim.children.vel, getLinearInterp(0.05));
+		changeInterpFunction(anim.children.pos, getLinearInterp(0.05));
+		const unsub = addRecursiveListener(posAnim, 'beforeEnd', () => {
 			glideLayer.clearRecordedStates();
 			if (pointerId && psDown[pointerId]) {
-				modifyTo(
-					anim,
-					addVec(getLocalInterpingTo(anim), newVec2(Math.random() - 0.5, Math.random() - 0.5))
-				);
+				const oldPos = getLocalInterpingTo(posAnim);
+				modifyTo(posAnim, addVec(oldPos, newVec2(Math.random() - 0.5, Math.random() - 0.5)));
+				modifyTo(anim, {
+					vel: newVec2(Math.random() - 0.5, Math.random() - 0.5)
+				});
 				return;
 			}
 			pDownMode.off();
 			defaultMode.on();
 			step();
 		});
+		return () => {
+			unsub();
+			changeInterpFunction(anim.children.vel, oldVelInterp);
+			changeInterpFunction(anim.children.pos, oldPosInterp);
+		};
 	});
 	const step = (reset: boolean = false) => {
 		if (pointerId) {
@@ -62,10 +73,10 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 		const oldVel = getLocalInterpingTo(anim.children.vel);
 		const vMag = magSquared(oldVel);
 
-		if (vMag > 50000) {
+		if (vMag > 100000) {
 			return;
 		}
-		if (vMag < 0.5) {
+		if (vMag < 0.01) {
 			return;
 		}
 		const newPos = addVec(to, mulScalar(field(to), 0.001));
@@ -76,7 +87,7 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 			modifyTo(anim.children.pos, newPos);
 			return;
 		}
-		modifyTo(anim.children.vel, diff);
+		modifyTo(anim.children.vel, mulScalar(diff, 0.25));
 		modifyTo(anim.children.pos, newPos);
 	};
 	let pointerId: number | undefined = undefined;
@@ -87,8 +98,12 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 
 		pointerId = undefined;
 		pPosOffset = undefined;
-		glideLayer.startGlide();
-		defaultMode.on();
+		if (glideLayer.startGlide()) {
+			modifyTo(anim.children.vel, mulScalar(normalize(getLocalState(anim.children.vel)), 100));
+		}
+		setTimeout(() => {
+			defaultMode.on();
+		}, 100);
 	});
 	window.addEventListener('pointerup', (e) => {
 		psDown[e.pointerId] = false;
@@ -98,7 +113,9 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 		if (glideLayer.startGlide()) {
 			modifyTo(anim.children.vel, mulScalar(normalize(getLocalState(anim.children.vel)), 100));
 		}
-		defaultMode.on();
+		setTimeout(() => {
+			defaultMode.on();
+		}, 100);
 	});
 	window.addEventListener('pointermove', (e) => {
 		const pPos = newVec2(e.clientX * devicePixelRatio, e.clientY * devicePixelRatio);
@@ -109,10 +126,8 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 			const newPos = addVec(pPos, pPosOffset);
 			modifyTo(anim.children.pos, addVec(pPos, pPosOffset));
 			const diff = subVec(newPos, oldPos);
-			if (magSquared(diff) <= 1) {
-				return;
-			}
-			modifyTo(anim.children.vel, diff);
+			const adjMag = clamp(1, mag(diff), 500);
+			modifyTo(anim.children.vel, mulScalar(normalize(diff), adjMag));
 		} else {
 			if (magSquared(offset) < 2000 && psDown[e.pointerId]) {
 				pointerId = e.pointerId;
@@ -168,8 +183,9 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 				});
 			}
 		},
-		getLinearInterp(0.1)
+		getLinearInterp(0.25)
 	);
+	changeInterpFunction(anim.children.vel, getLinearInterp(0.125));
 	const pDownMode = createMode(anim.children.pos, pdownStack);
 	const pUpExt: Extension<Vec2> = (anim) => {
 		return addLocalListener(anim, 'beforeEnd', () => step());
