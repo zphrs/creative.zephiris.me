@@ -33,8 +33,11 @@
 		color: Color;
 	};
 
+	let canvas: HTMLCanvasElement | undefined = $state(undefined);
+
 	const WHITE: Color = { r: 255, g: 255, b: 255 };
 	onMount(() => {
+		if (!canvas) return;
 		const updateLayer = getUpdateLayer(requestAnimationFrame);
 		const createLine = (p1: Vec2, p2: Vec2, color: Color = WHITE) => {
 			const shapeCache: { p1: Vec2; p2: Vec2 } = { p1: copy(ZERO_VEC2), p2: copy(ZERO_VEC2) };
@@ -63,6 +66,8 @@
 				return updateAnimation(anim, dt);
 			};
 			const onPointChange = (animInfo: Animation<Vec2>) => {
+				if (!canvas) return;
+
 				const oldPt = getLocalInterpingTo(animInfo);
 				const newPt: Vec2 = getLocalState(animInfo);
 				// subtract the vectors to get the difference
@@ -112,7 +117,6 @@
 			};
 			return out;
 		};
-		const canvas: HTMLCanvasElement = document.querySelector('#porky-canvas')!;
 		const increasinglySlower = (x: number) => {
 			return Math.min(x, 100_000_000_000);
 		};
@@ -132,6 +136,8 @@
 		};
 
 		const randomizeLine = (line: DrawableLine, withTimeout = true) => {
+			if (!canvas) return;
+
 			// wait for a random amount of time
 			const canvasMag = mag(newVec2(canvas.width, canvas.height));
 			const p1 = newVec2(canvas.width * Math.random(), canvas.height * Math.random());
@@ -197,6 +203,8 @@
 		};
 
 		const onResize = () => {
+			if (!canvas) return;
+
 			canvas.width = window.innerWidth * devicePixelRatio;
 			canvas.height = window.innerHeight * devicePixelRatio;
 			canvas.style.width = window.innerWidth + 'px';
@@ -214,6 +222,7 @@
 		canvas.style.touchAction = 'none';
 		setTimeout(() => {
 			onResize();
+			if (!canvas) return;
 			const canvasMag = mag(newVec2(canvas.width, canvas.height));
 			for (let i = 0; i < canvasMag; i++) {
 				const canvasCenter = newVec2(canvas.width / 2, canvas.height / 2);
@@ -237,7 +246,7 @@
 	});
 </script>
 
-<canvas id="porky-canvas"></canvas>
+<canvas bind:this={canvas}></canvas>
 
 <svelte:head>
 	<title>Porcupine</title>

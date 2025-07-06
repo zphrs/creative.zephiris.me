@@ -168,7 +168,7 @@ export function createParticle(field: (pos: Vec2) => Vec2, screenDims: Vec2) {
 			reset: (screenDims: Vec2) => {
 				resetting = true;
 				const newPos = newVec2(
-					0.6 * devicePixelRatio * screenDims.x,
+					0.4 * devicePixelRatio * screenDims.x,
 					1 * devicePixelRatio * screenDims.y
 				);
 				// changeInterpFunction(anim.children.pos, NO_INTERP);
