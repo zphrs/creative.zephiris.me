@@ -7,6 +7,7 @@
 	import Player from '$lib/Player.svelte';
 	import Footer from '$lib/Footer.svelte';
 	import Porcupine from '../(anims)/porcupine/Porcupine.svelte';
+	import { onMount } from 'svelte';
 
 	let mainLayer = getUpdateLayer();
 	const playInterp = createAnimation({ playDandelion: 1 }, getSlerp(3));
@@ -38,7 +39,13 @@
 	let bodyHeight = $state(0);
 
 	$effect(() => {
+		if (!window) return;
 		window.parent.postMessage(bodyHeight, { targetOrigin: '*' });
+	});
+	onMount(() => {
+		setTimeout(() => {
+			window?.parent.postMessage(bodyHeight, { targetOrigin: '*' });
+		}, 0);
 	});
 </script>
 

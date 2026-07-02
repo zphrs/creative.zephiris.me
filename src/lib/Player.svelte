@@ -129,6 +129,7 @@
 		width: 100%;
 		aspect-ratio: 1;
 	}
+
 	.parent {
 		position: relative;
 		margin: 1rem;
@@ -149,6 +150,9 @@
 		}
 	}
 	button {
+		position: absolute;
+		top: 1rem;
+		left: 1rem;
 		border-radius: 50%;
 		aspect-ratio: 1;
 		border: none;
@@ -159,6 +163,7 @@
 		box-sizing: border-box;
 		align-items: center;
 		justify-content: center;
+		z-index: 2;
 	}
 	button:hover {
 		background-color: var(--gray-90);
@@ -184,7 +189,7 @@
 	h3 {
 		margin: 0;
 		position: absolute;
-		bottom: 1rem;
+		bottom: min(1rem, 5vw);
 		left: 50%;
 		transform: translateX(-50%);
 		display: inline-flex;
@@ -194,6 +199,7 @@
 		background-color: var(--gray-95);
 		padding: 0.125rem 0.25rem;
 		border-radius: 0.5rem;
+		font-size: min(1em, 5vw);
 		touch-action: none;
 		pointer-events: none;
 	}
