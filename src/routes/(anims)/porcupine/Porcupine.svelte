@@ -18,10 +18,16 @@
 		ZERO_VEC2,
 		copy,
 		copyObject,
-		type unsubscribe
+		type unsubscribe,
+		type UnknownAnimatable
 	} from 'aninest';
-	import { getUpdateLayer } from '@aninest/extensions';
+	import { getUpdateLayer, type UpdateLayer } from '@aninest/extensions';
 	import { onMount } from 'svelte';
+
+	let {
+		parentUpdateLayer,
+		lineCount
+	}: { parentUpdateLayer?: UpdateLayer<UnknownAnimatable>; lineCount?: number } = $props();
 
 	type Color = { r: number; g: number; b: number };
 
@@ -34,11 +40,13 @@
 	};
 
 	let canvas: HTMLCanvasElement | undefined = $state(undefined);
+	const screenDimensions = $state({ x: 0, y: 0 });
 
 	const WHITE: Color = { r: 255, g: 255, b: 255 };
 	onMount(() => {
 		if (!canvas) return;
 		const updateLayer = getUpdateLayer(requestAnimationFrame);
+		const unmount = parentUpdateLayer && updateLayer.setParent(parentUpdateLayer);
 		const createLine = (p1: Vec2, p2: Vec2, color: Color = WHITE) => {
 			const shapeCache: { p1: Vec2; p2: Vec2 } = { p1: copy(ZERO_VEC2), p2: copy(ZERO_VEC2) };
 			const colorCache: Color = copyObject(WHITE);
@@ -127,6 +135,12 @@
 			ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 			lines.forEach((line) => line.draw(ctx));
 		});
+		$effect(() => {
+			if (!canvas) return;
+			canvas.width = screenDimensions.x * devicePixelRatio;
+			canvas.height = screenDimensions.y * devicePixelRatio;
+			lines.forEach((line) => line.draw(ctx));
+		});
 		const randColor = () => {
 			const sinceLastClick = (performance.now() - lastClicked) / 1000;
 			const inv = 1 / (sinceLastClick + 1);
@@ -187,8 +201,10 @@
 		let downCt = 0;
 		const onMove = (e: PointerEvent) => {
 			if (downCt === 0) return;
-			const x = e.clientX * devicePixelRatio;
-			const y = e.clientY * devicePixelRatio;
+			const elementOffset = canvas!.getBoundingClientRect();
+
+			const x = (e.clientX - elementOffset.x) * devicePixelRatio;
+			const y = (e.clientY - elementOffset.y) * devicePixelRatio;
 			const p = newVec2(x, y);
 			const points = { p1: p, p2: p };
 			lines.forEach((line) => {
@@ -202,26 +218,8 @@
 			onMove(e);
 		};
 
-		const onResize = () => {
-			if (!canvas) return;
-
-			canvas.width = window.innerWidth * devicePixelRatio;
-			canvas.height = window.innerHeight * devicePixelRatio;
-			canvas.style.width = window.innerWidth + 'px';
-			canvas.style.height = window.innerHeight + 'px';
-			lines.forEach((line) => {
-				line.draw(ctx);
-			});
-		};
-		canvas.style.position = 'relative';
-		canvas.style.top = '0';
-		canvas.style.left = '0';
-		canvas.style.width = window.innerWidth + 'px';
-		canvas.style.height = window.innerHeight + 'px';
-		canvas.style.overflow = 'hidden';
 		canvas.style.touchAction = 'none';
 		setTimeout(() => {
-			onResize();
 			if (!canvas) return;
 			const canvasMag = mag(newVec2(canvas.width, canvas.height));
 			for (let i = 0; i < canvasMag; i++) {
@@ -233,24 +231,21 @@
 			// the animation always moves smoothly regardless
 			randomizeLines();
 		}, 0);
-		window.addEventListener('resize', onResize);
-		// also call when the device is rotated or the pixel ratio changes
-		window.addEventListener('orientationchange', onResize);
-		window.addEventListener('devicePixelRatio', onResize);
 
 		canvas.addEventListener('pointerup', onUp);
 		canvas.addEventListener('pointerleave', onUp);
 		canvas.addEventListener('pointerdown', onDown);
 		canvas.addEventListener('pointermove', onMove);
-		// get the canvas magnitudes
+
+		return unmount;
 	});
 </script>
 
-<canvas bind:this={canvas}></canvas>
-
-<svelte:head>
-	<title>Porcupine</title>
-</svelte:head>
+<canvas
+	bind:this={canvas}
+	bind:clientWidth={screenDimensions.x}
+	bind:clientHeight={screenDimensions.y}
+></canvas>
 
 <style>
 	canvas {

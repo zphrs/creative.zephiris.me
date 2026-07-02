@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Porcupine</title>
+	<title>Porcupine | Creative Experiments</title>
 </svelte:head>
 
 <div>
@@ -13,7 +13,10 @@
 <style>
 	div {
 		display: block;
-		width: 100svw;
-		height: 100svh;
+		width: 100lvw;
+		height: 100dvh;
+		position: absolute;
+		top: 0;
+		left: 0;
 	}
 </style>

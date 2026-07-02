@@ -11,15 +11,23 @@
 		subVec,
 		divVec,
 		getInterpingToTree,
-		mag
+		mag,
+		type UnknownAnimatable,
+		type unsubscribe,
+		magSquared
 	} from 'aninest';
 	import { createParticle } from './particle';
-	import { getInterpingToProxy, getUpdateLayer } from '@aninest/extensions';
+	import { getInterpingToProxy, getUpdateLayer, type UpdateLayer } from '@aninest/extensions';
 	import { browser } from '$app/environment';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { createNoise3D } from 'simplex-noise';
 
-	const screenDimensions = $state(newVec2(0, 0));
+	const screenDimensions = $state({ x: 0, y: 0 });
+
+	let {
+		parentUpdateLayer,
+		particleCount
+	}: { parentUpdateLayer?: UpdateLayer<UnknownAnimatable>; particleCount?: number } = $props();
 
 	let canvas: HTMLCanvasElement | undefined;
 	const ctx = $derived(canvas?.getContext('2d'));
@@ -35,7 +43,7 @@
 	const vectorField = (pos: Vec2): Vec2 => {
 		const untrackedDims = untrack(() => screenDimensions);
 		if (untrackedDims.x == 0 || untrackedDims.y == 0) return ZERO_VEC2;
-		const scalar = 2 * Math.min(untrackedDims.y, untrackedDims.x);
+		const scalar = window.devicePixelRatio * Math.min(untrackedDims.y, untrackedDims.x);
 		const ops: (Op<number> | Op<Vec2>)[] = [
 			[divScalar, mulScalar, scalar],
 			[addVec, subVec, newVec2(-0.5, -0.5)],
@@ -114,8 +122,8 @@
 		out = addVec(
 			out,
 			mulScalar(
-				newVec2(xNoise3D(x * 10, y * 10, time), yNoise3D(x * 10, y * 10, time)),
-				Math.min(Math.sqrt((mag(out) + 5000) * Math.max(mag(out), 5000)), 100000)
+				newVec2(xNoise3D(x, y, time * 4), yNoise3D(x, y, time * 4)),
+				Math.min(mag(out) + 2000, 20000)
 			)
 		);
 		return out;
@@ -123,22 +131,38 @@
 
 	$effect(() => {
 		const untrackedDims = untrack(() => screenDimensions);
-		if (!ctx || !browser || !untrackedDims) return;
-		const unsubMap = new WeakMap();
+		if (!ctx || !browser || !untrackedDims || !canvas) return;
+
+		let particles = 0;
+		const unsubSet = new Set();
 		const interval = setInterval(() => {
-			for (let i = 0; i < 20; i++) {
-				const particle = createParticle(vectorField, untrackedDims);
+			if (particleCount !== undefined && particleCount < particles) {
+				clearInterval(interval);
+				return;
+			}
+			for (let i = 0; i < 1; i++) {
+				const particle = createParticle(vectorField, untrackedDims, canvas!);
 				const { step } = getInterpingToTree(particle.anim);
 				const unsub = updateLayer.mount(particle.anim);
-				unsubMap.set(particle.anim, unsub);
-				step(true);
+				unsubSet.add(() => {
+					particle.unsub();
+					unsub();
+					console.log('unsubbed');
+				});
+				step();
 			}
-		}, 100);
-		setTimeout(() => {
+			particles += 1;
+		}, 1);
+		onDestroy(() => {
+			for (const value of unsubSet) {
+				value();
+			}
 			clearInterval(interval);
-		}, 10000);
+		});
 		type Particle = AnimatableOf<ReturnType<typeof createParticle>['anim']>;
 		const updateLayer = getUpdateLayer<Particle>();
+		console.log(parentUpdateLayer);
+		const unmount = parentUpdateLayer && updateLayer.setParent(parentUpdateLayer);
 
 		updateLayer.subscribe('end', (anim) => {
 			const { reset } = getInterpingToTree(anim);
@@ -157,7 +181,9 @@
 		});
 
 		updateLayer.subscribe('updateWithDeltaTime', (dt) => {
-			time += 4 * dt;
+			const untrackedDims = untrack(() => screenDimensions);
+
+			time += dt;
 			// console.log(Math.round(1 / dt)); // logs fps
 			ctx.clearRect(0, 0, untrackedDims.x * devicePixelRatio, untrackedDims.y * devicePixelRatio);
 		});
@@ -168,8 +194,16 @@
 			draw(ctx);
 		});
 		return () => {
+			if (unmount) unmount();
 			clearInterval(interval);
 		};
+	});
+
+	$effect(() => {
+		if (!canvas) return;
+		canvas.width = screenDimensions.x * devicePixelRatio;
+		canvas.height = screenDimensions.y * devicePixelRatio;
+		parentUpdateLayer?.forceUpdate(0);
 	});
 
 	$effect(() => {
@@ -180,28 +214,18 @@
 		canvas.style.overflow = 'hidden';
 		canvas.style.touchAction = 'none';
 	});
-
-	$effect(() => {
-		if (!canvas) return;
-		canvas.width = screenDimensions.x * devicePixelRatio;
-		canvas.height = screenDimensions.y * devicePixelRatio;
-		canvas.style.width = screenDimensions.x + 'px';
-		canvas.style.height = screenDimensions.y + 'px';
-	});
 </script>
 
-<svelte:window bind:innerWidth={screenDimensions.x} bind:innerHeight={screenDimensions.y} />
-
-<canvas bind:this={canvas}></canvas>
-
-<svelte:head>
-	<title>Dandelion</title>
-</svelte:head>
+<canvas
+	bind:clientWidth={screenDimensions.x}
+	bind:clientHeight={screenDimensions.y}
+	bind:this={canvas}
+></canvas>
 
 <style>
 	canvas {
 		display: block;
-		width: 100svw;
-		height: 100svh;
+		width: 100%;
+		height: 100%;
 	}
 </style>
