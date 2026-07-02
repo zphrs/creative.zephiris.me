@@ -1,0 +1,1 @@
+import{f as t,b as e}from"../chunks/BxUkOl_o.js";import"../chunks/C9C1qd-v.js";import{a3 as i,a1 as m,a2 as p}from"../chunks/DHREYw-R.js";import{h as s}from"../chunks/DkqHrXCx.js";import{P as n}from"../chunks/vqkMMrXq.js";var c=t('<div class="svelte-18la0x1"><!></div>');function P(a){var o=c();s(d=>{i.title="Porcupine"});var r=m(o);n(r,{}),p(o),e(a,o)}export{P as component};
