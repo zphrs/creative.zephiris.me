@@ -15,12 +15,14 @@
 		children,
 		title,
 		link,
-		mainLayer
+		mainLayer,
+		maximizeInNewWindow
 	}: {
 		children: Snippet<[UpdateLayer<UnknownAnimatable>]>;
 		title: string;
 		link: string;
 		mainLayer: UpdateLayer<UnknownAnimatable>;
+		maximizeInNewWindow: boolean;
 	} = $props();
 
 	const playInterp = createAnimation({ playDandelion: 1 }, getSlerp(3));
@@ -79,7 +81,12 @@
 	>
 		{@render children(updateLayer)}
 	</div>
-	<a class="open" href={link}>
+	<a
+		class="open"
+		href={link}
+		target={maximizeInNewWindow ? '_blank' : undefined}
+		rel={maximizeInNewWindow ? 'noopener noreferrer' : undefined}
+	>
 		<Maximize2></Maximize2>
 	</a>
 	<button
