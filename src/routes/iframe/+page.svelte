@@ -38,14 +38,16 @@
 	});
 	let bodyHeight = $state(0);
 
-	$effect(() => {
-		if (!window) return;
-		window.parent.postMessage(bodyHeight, { targetOrigin: '*' });
-	});
+	const postHeight = () => {
+		window?.parent.postMessage(bodyHeight, { targetOrigin: '*' });
+	};
+
+	$effect(postHeight);
 	onMount(() => {
+		const id = setInterval(postHeight, 10);
 		setTimeout(() => {
-			window?.parent.postMessage(bodyHeight, { targetOrigin: '*' });
-		}, 0);
+			clearInterval(id);
+		}, 1000);
 	});
 </script>
 
